@@ -59,6 +59,9 @@ func newReviewsCommand(app *appContext) *cobra.Command {
 	}
 	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of reviews")
 	cmd.Flags().StringVar(&sort, "sort", "newest", "Review sort order: newest, rating, or helpfulness")
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		fmt.Fprintln(cmd.OutOrStdout(), reviewsHelp)
+	})
 	return cmd
 }
 
@@ -92,4 +95,11 @@ Flags:
 
 Sort support:
   ios      newest, helpfulness
-  android  newest, rating, helpfulness`
+  android  newest, rating, helpfulness
+
+Global Flags:
+      --platform string   Store platform: ios or android
+      --country string    Two-letter store country code (default "us")
+      --lang string       Language code where supported (default "en")
+      --output string     Output format: json or csv (default "json")
+      --timeout duration  Request timeout (default 30s)`

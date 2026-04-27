@@ -49,6 +49,10 @@ func newRootCommand(app *appContext) *cobra.Command {
 		SilenceErrors: true,
 	}
 	cmd.Long = rootHelp
+	cmd.CompletionOptions.DisableDefaultCmd = true
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		fmt.Fprintln(cmd.OutOrStdout(), rootHelp)
+	})
 
 	cmd.PersistentFlags().StringVar(&app.globals.platform, "platform", "", "Store platform: ios or android")
 	cmd.PersistentFlags().StringVar(&app.globals.country, "country", "us", "Two-letter store country code")

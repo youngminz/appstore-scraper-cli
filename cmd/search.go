@@ -53,6 +53,9 @@ func newSearchCommand(app *appContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum number of search results")
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		fmt.Fprintln(cmd.OutOrStdout(), searchHelp)
+	})
 	return cmd
 }
 
@@ -67,4 +70,11 @@ Examples:
 
 Flags:
       --limit int  Maximum number of search results (default 10, max 250)
-  -h, --help       Show help`
+  -h, --help       Show help
+
+Global Flags:
+      --platform string   Store platform: ios or android
+      --country string    Two-letter store country code (default "us")
+      --lang string       Language code where supported (default "en")
+      --output string     Output format: json or csv (default "json")
+      --timeout duration  Request timeout (default 30s)`

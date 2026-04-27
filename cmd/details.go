@@ -46,6 +46,9 @@ func newDetailsCommand(app *appContext) *cobra.Command {
 			return app.writeJSON(res)
 		},
 	}
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		cmd.Println(detailsHelp)
+	})
 	return cmd
 }
 
@@ -60,4 +63,11 @@ Examples:
   appstore-scraper details com.spotify.music --platform android --country us
 
 Flags:
-  -h, --help  Show help`
+  -h, --help  Show help
+
+Global Flags:
+      --platform string   Store platform: ios or android
+      --country string    Two-letter store country code (default "us")
+      --lang string       Language code where supported (default "en")
+      --output string     Output format: json or csv (default "json")
+      --timeout duration  Request timeout (default 30s)`
