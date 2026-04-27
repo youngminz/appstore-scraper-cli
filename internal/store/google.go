@@ -3,50 +3,90 @@ package store
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
 	gpapp "github.com/n0madic/google-play-scraper/pkg/app"
 	gpreviews "github.com/n0madic/google-play-scraper/pkg/reviews"
-	gpsearch "github.com/n0madic/google-play-scraper/pkg/search"
 	"github.com/n0madic/google-play-scraper/pkg/store"
 	"github.com/youngminz/appstore-scraper-cli/internal/model"
 )
 
-type GoogleClient struct{}
+type GoogleClient struct {
+	http *http.Client
+}
 
-func NewGoogleClient() *GoogleClient {
-	return &GoogleClient{}
+func NewGoogleClient(httpClient *http.Client) *GoogleClient {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	return &GoogleClient{http: httpClient}
 }
 
 func (c *GoogleClient) Search(ctx context.Context, req SearchRequest) (model.SearchResponse, error) {
 	now := time.Now().UTC()
-	scraper := gpsearch.NewQuery(req.Query, gpsearch.PriceAll, gpsearch.Options{
-		Country: req.Country, Language: req.Lang, Number: req.Limit,
-	})
-	if err := runWithContext(ctx, scraper.Run); err != nil {
-		return model.SearchResponse{}, fmt.Errorf("android search failed: %w", err)
+	ids, err := c.searchPackageIDs(ctx, req)
+	if err != nil {
+		return model.SearchResponse{}, err
 	}
-	_ = runWithContext(ctx, func() error {
-		errs := scraper.LoadMoreDetails(4)
-		if len(errs) > 0 {
-			return errs[0]
+	results := make([]model.App, 0, len(ids))
+	for _, id := range ids {
+		app := gpapp.New(id, gpapp.Options{Country: req.Country, Language: req.Lang})
+		if err := runWithContext(ctx, app.LoadDetails); err != nil {
+			continue
 		}
-		return nil
-	})
-	results := make([]model.App, 0, len(scraper.Results))
-	for _, app := range scraper.Results {
-		if app != nil {
-			results = append(results, normalizeGoogleApp(app))
-		}
-	}
-	if len(results) > req.Limit {
-		results = results[:req.Limit]
+		results = append(results, normalizeGoogleApp(app))
 	}
 	return model.SearchResponse{
 		Query: req.Query, Platform: req.Platform, Country: req.Country, Lang: req.Lang,
 		Limit: req.Limit, Count: len(results), FetchedAt: now, Results: results,
 	}, nil
+}
+
+var googleDetailsIDPattern = regexp.MustCompile(`/store/apps/details\?id=([A-Za-z0-9._]+)`)
+
+func (c *GoogleClient) searchPackageIDs(ctx context.Context, req SearchRequest) ([]string, error) {
+	values := url.Values{}
+	values.Set("q", req.Query)
+	values.Set("c", "apps")
+	values.Set("gl", req.Country)
+	values.Set("hl", req.Lang)
+	endpoint := "https://play.google.com/store/search?" + values.Encode()
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("User-Agent", "Mozilla/5.0 appstore-scraper-cli/0.1")
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("android search failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("android search failed: %s", resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	matches := googleDetailsIDPattern.FindAllStringSubmatch(string(body), -1)
+	seen := map[string]bool{}
+	ids := make([]string, 0, req.Limit)
+	for _, match := range matches {
+		if len(match) < 2 || seen[match[1]] {
+			continue
+		}
+		seen[match[1]] = true
+		ids = append(ids, match[1])
+		if len(ids) >= req.Limit {
+			break
+		}
+	}
+	return ids, nil
 }
 
 func (c *GoogleClient) Details(ctx context.Context, req DetailsRequest) (model.DetailsResponse, error) {
@@ -120,7 +160,7 @@ func normalizeGoogleReview(appID string, review *gpreviews.Review) model.Review 
 		return model.Review{}
 	}
 	var replied *model.DeveloperResponse
-	if review.Reply != "" || !review.ReplyTimestamp.IsZero() {
+	if review.Reply != "" {
 		var repliedAt *time.Time
 		if !review.ReplyTimestamp.IsZero() {
 			t := review.ReplyTimestamp.UTC()

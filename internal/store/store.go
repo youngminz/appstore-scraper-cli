@@ -53,7 +53,7 @@ type Router struct {
 func NewRouter(httpClient *http.Client) *Router {
 	return &Router{
 		ios:     NewAppleClient(httpClient),
-		android: NewGoogleClient(),
+		android: NewGoogleClient(httpClient),
 	}
 }
 
