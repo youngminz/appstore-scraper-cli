@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -194,10 +193,10 @@ func normalizeAppleApp(app appleLookupApp) model.App {
 		ID: id, BundleID: model.StringPtr(app.BundleID), PackageName: nil,
 		Title: model.StringPtr(app.TrackName), Summary: nil, Description: model.StringPtr(app.Description),
 		Developer: model.Developer{ID: model.StringPtr(developerID), Name: model.StringPtr(firstNonEmpty(app.ArtistName, app.SellerName))},
-		IconURL:   model.StringPtr(app.ArtworkURL512), ScreenshotURLs: screenshots,
+		IconURL:   model.StringPtr(app.ArtworkURL512), ScreenshotURLs: nonNilStrings(screenshots),
 		Rating:     model.Rating{Score: model.FloatPtr(app.AverageUserRating), Count: model.Int64Ptr(app.UserRatingCount), Histogram: nil},
 		Pricing:    model.Pricing{Price: model.FloatPtr(app.Price), Currency: model.StringPtr(app.Currency), FormattedPrice: model.StringPtr(app.FormattedPrice), Free: model.BoolPtr(free)},
-		Categories: categories, ContentRating: model.StringPtr(app.ContentAdvisoryRating),
+		Categories: nonNilCategories(categories), ContentRating: model.StringPtr(app.ContentAdvisoryRating),
 		ReleasedAt: parseTime(app.ReleaseDate), UpdatedAt: parseTime(app.CurrentVersionDate),
 		Version: model.StringPtr(app.Version), ReleaseNotes: model.StringPtr(app.ReleaseNotes), StoreURL: model.StringPtr(app.TrackViewURL),
 	}
@@ -291,5 +290,3 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
-
-var errNotImplemented = errors.New("not implemented")

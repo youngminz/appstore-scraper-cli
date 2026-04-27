@@ -107,10 +107,10 @@ func normalizeGoogleApp(app *gpapp.App) model.App {
 			Name: model.StringPtr(app.Developer), Website: model.StringPtr(firstNonEmpty(app.DeveloperWebsite, app.DeveloperURL)),
 			Email: model.StringPtr(app.DeveloperEmail),
 		},
-		IconURL: model.StringPtr(app.Icon), ScreenshotURLs: app.Screenshots,
+		IconURL: model.StringPtr(app.Icon), ScreenshotURLs: nonNilStrings(app.Screenshots),
 		Rating:     model.Rating{Score: model.FloatPtr(app.Score), Count: model.Int64Ptr(ratingCount), ReviewCount: model.Int64Ptr(reviewCount), Histogram: intHistogram(app.RatingsHistogram)},
 		Pricing:    model.Pricing{Price: model.FloatPtr(app.Price.Value), Currency: model.StringPtr(app.Price.Currency), FormattedPrice: model.StringPtr(formattedPrice), Free: model.BoolPtr(free)},
-		Categories: categories, ContentRating: model.StringPtr(app.ContentRating), ReleasedAt: parseTime(app.Released), UpdatedAt: updatedAt,
+		Categories: nonNilCategories(categories), ContentRating: model.StringPtr(app.ContentRating), ReleasedAt: parseTime(app.Released), UpdatedAt: updatedAt,
 		Version: model.StringPtr(app.Version), ReleaseNotes: model.StringPtr(app.RecentChanges), StoreURL: model.StringPtr(app.URL),
 	}
 }

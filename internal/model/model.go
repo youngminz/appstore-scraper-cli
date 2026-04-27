@@ -5,15 +5,15 @@ import "time"
 type Developer struct {
 	ID      *string `json:"id"`
 	Name    *string `json:"name"`
-	Website *string `json:"website,omitempty"`
-	Email   *string `json:"email,omitempty"`
+	Website *string `json:"website"`
+	Email   *string `json:"email"`
 }
 
 type Rating struct {
 	Score       *float64      `json:"score"`
 	Count       *int64        `json:"count"`
-	ReviewCount *int64        `json:"reviewCount,omitempty"`
-	Histogram   map[int]int64 `json:"histogram,omitempty"`
+	ReviewCount *int64        `json:"reviewCount"`
+	Histogram   map[int]int64 `json:"histogram"`
 }
 
 type Pricing struct {
@@ -33,19 +33,19 @@ type App struct {
 	BundleID       *string    `json:"bundleId"`
 	PackageName    *string    `json:"packageName"`
 	Title          *string    `json:"title"`
-	Summary        *string    `json:"summary,omitempty"`
-	Description    *string    `json:"description,omitempty"`
+	Summary        *string    `json:"summary"`
+	Description    *string    `json:"description"`
 	Developer      Developer  `json:"developer"`
 	IconURL        *string    `json:"iconUrl"`
-	ScreenshotURLs []string   `json:"screenshotUrls,omitempty"`
+	ScreenshotURLs []string   `json:"screenshotUrls"`
 	Rating         Rating     `json:"rating"`
 	Pricing        Pricing    `json:"pricing"`
-	Categories     []Category `json:"categories,omitempty"`
-	ContentRating  *string    `json:"contentRating,omitempty"`
-	ReleasedAt     *time.Time `json:"releasedAt,omitempty"`
-	UpdatedAt      *time.Time `json:"updatedAt,omitempty"`
-	Version        *string    `json:"version,omitempty"`
-	ReleaseNotes   *string    `json:"releaseNotes,omitempty"`
+	Categories     []Category `json:"categories"`
+	ContentRating  *string    `json:"contentRating"`
+	ReleasedAt     *time.Time `json:"releasedAt"`
+	UpdatedAt      *time.Time `json:"updatedAt"`
+	Version        *string    `json:"version"`
+	ReleaseNotes   *string    `json:"releaseNotes"`
 	StoreURL       *string    `json:"storeUrl"`
 }
 

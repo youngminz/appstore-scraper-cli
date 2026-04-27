@@ -30,14 +30,14 @@ func newReviewsCommand(app *appContext) *cobra.Command {
 			if limit < 1 || limit > 1000 {
 				return fmt.Errorf("review limit must be between 1 and 1000")
 			}
-			if err := validateSort(app.globals.platform, sort); err != nil {
-				return err
-			}
 			ctx, cancel, err := app.prepare()
 			if err != nil {
 				return err
 			}
 			defer cancel()
+			if err := validateSort(app.globals.platform, sort); err != nil {
+				return err
+			}
 
 			req := store.ReviewsRequest{
 				AppID:    args[0],
