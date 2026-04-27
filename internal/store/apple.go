@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -120,23 +121,30 @@ func (c *AppleClient) lookupApp(ctx context.Context, appID, country, lang string
 }
 
 func (c *AppleClient) getJSON(ctx context.Context, endpoint string, dest any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("User-Agent", "appstore-scraper-cli/0.1")
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("apple request failed: %s", resp.Status)
-	}
-	if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
-		return err
-	}
-	return nil
+	return retryTransient(ctx, func() error {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("User-Agent", "appstore-scraper-cli/0.1")
+		resp, err := c.http.Do(req)
+		if err != nil {
+			return transientError{err: err}
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+			err := fmt.Errorf("apple request failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+			if isTransientStatus(resp.StatusCode) {
+				return transientError{err: err}
+			}
+			return err
+		}
+		if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 type appleLookupResponse struct {

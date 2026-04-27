@@ -1,6 +1,6 @@
 module github.com/youngminz/appstore-scraper-cli
 
-go 1.25.0
+go 1.22
 
 require (
 	github.com/n0madic/google-play-scraper v0.0.0-20231014122808-52dbf3ade79b

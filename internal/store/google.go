@@ -36,7 +36,7 @@ func (c *GoogleClient) Search(ctx context.Context, req SearchRequest) (model.Sea
 	results := make([]model.App, 0, len(ids))
 	for _, id := range ids {
 		app := gpapp.New(id, gpapp.Options{Country: req.Country, Language: req.Lang})
-		if err := runWithContext(ctx, app.LoadDetails); err != nil {
+		if err := runGoogleWithRetry(ctx, app.LoadDetails); err != nil {
 			continue
 		}
 		results = append(results, normalizeGoogleApp(app))
@@ -61,16 +61,23 @@ func (c *GoogleClient) searchPackageIDs(ctx context.Context, req SearchRequest) 
 		return nil, err
 	}
 	httpReq.Header.Set("User-Agent", "Mozilla/5.0 appstore-scraper-cli/0.1")
-	resp, err := c.http.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("android search failed: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("android search failed: %s", resp.Status)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	var body []byte
+	if err := retryTransient(ctx, func() error {
+		resp, err := c.http.Do(httpReq)
+		if err != nil {
+			return transientError{err: fmt.Errorf("android search failed: %w", err)}
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			err := fmt.Errorf("android search failed: %s", resp.Status)
+			if isTransientStatus(resp.StatusCode) {
+				return transientError{err: err}
+			}
+			return err
+		}
+		body, err = io.ReadAll(resp.Body)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	matches := googleDetailsIDPattern.FindAllStringSubmatch(string(body), -1)
@@ -92,7 +99,7 @@ func (c *GoogleClient) searchPackageIDs(ctx context.Context, req SearchRequest) 
 func (c *GoogleClient) Details(ctx context.Context, req DetailsRequest) (model.DetailsResponse, error) {
 	now := time.Now().UTC()
 	app := gpapp.New(req.AppID, gpapp.Options{Country: req.Country, Language: req.Lang})
-	if err := runWithContext(ctx, app.LoadDetails); err != nil {
+	if err := runGoogleWithRetry(ctx, app.LoadDetails); err != nil {
 		return model.DetailsResponse{}, fmt.Errorf("android app not found or details failed: %s: %w", req.AppID, err)
 	}
 	return model.DetailsResponse{
@@ -106,7 +113,7 @@ func (c *GoogleClient) Reviews(ctx context.Context, req ReviewsRequest) (model.R
 	reviewClient := gpreviews.New(req.AppID, gpreviews.Options{
 		Country: req.Country, Language: req.Lang, Number: req.Limit, Sorting: googleSort(req.Sort),
 	})
-	if err := runWithContext(ctx, reviewClient.Run); err != nil {
+	if err := runGoogleWithRetry(ctx, reviewClient.Run); err != nil {
 		return model.ReviewsResponse{}, fmt.Errorf("android reviews failed: %w", err)
 	}
 	reviews := make([]model.Review, 0, len(reviewClient.Results))
@@ -219,4 +226,14 @@ func runWithContext(ctx context.Context, fn func() error) error {
 		}
 		return err
 	}
+}
+
+func runGoogleWithRetry(ctx context.Context, fn func() error) error {
+	return retryTransient(ctx, func() error {
+		err := runWithContext(ctx, fn)
+		if isTransientText(err) {
+			return transientError{err: err}
+		}
+		return err
+	})
 }
